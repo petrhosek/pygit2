@@ -41,7 +41,7 @@ PyObject* TreeEntry_to_object(TreeEntry *self);
 
 TreeEntry* Tree_getitem_by_index(Tree *self, PyObject *py_index);
 TreeEntry* Tree_getitem(Tree *self, PyObject *value);
-PyObject* Tree_diff_tree(Tree *self, PyObject *args);
+PyObject* Tree_diff_tree(Tree *self, PyObject *args, PyObject *keywds);
 
 PyObject* TreeBuilder_insert(TreeBuilder *self, PyObject *args);
 PyObject* TreeBuilder_write(TreeBuilder *self);

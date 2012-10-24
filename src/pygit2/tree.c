@@ -265,7 +265,7 @@ Tree_getitem(Tree *self, PyObject *value)
 }
 
 PyObject *
-Tree_diff_tree(Tree *self, PyObject *args)
+Tree_diff_tree(Tree *self, PyObject *args, PyObject *keywds)
 {
     git_diff_options opts = {0};
     git_diff_list *diff;
@@ -273,9 +273,44 @@ Tree_diff_tree(Tree *self, PyObject *args)
 
     Diff *py_diff;
     PyObject *py_obj = NULL;
+    PyObject *py_pathspec = NULL;
 
-    if (!PyArg_ParseTuple(args, "|O", &py_obj))
+    static char *kwlist[] = { "obj", "flags", "context_lines",
+      "interhunk_lines", "old_prefix", "new_prefix", "pathspec", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "|Oihhsss", kwlist,
+                                     &py_obj,
+                                     &opts.flags,
+                                     &opts.context_lines,
+                                     &opts.interhunk_lines,
+                                     &opts.old_prefix,
+                                     &opts.new_prefix,
+                                     &py_pathspec))
         return NULL;
+
+    if (PySequence_Check(py_pathspec)) {
+        PyObject *py_path;
+        Py_ssize_t size, i;
+        char **strings;
+
+        size = PySequence_Size(py_pathspec);
+        strings = (char **)malloc(sizeof(char *) * size);
+        for(i = 0; i < size; i++) {
+            py_path = PyTuple_GetItem(py_pathspec, i);
+            if (PyString_Check(py_path)) {
+                strings[i] = PyString_AsString(py_path);
+            } else {
+                PyErr_SetObject(PyExc_TypeError, py_path);
+                free(strings);
+                return NULL;
+            }
+        }
+        opts.pathspec.strings = strings;
+        opts.pathspec.count = size;
+    } else if (py_pathspec != NULL) {
+        PyErr_SetObject(PyExc_TypeError, py_pathspec);
+        return NULL;
+    }
 
     if (py_obj == NULL) {
         err = git_diff_workdir_to_tree(
@@ -333,7 +368,7 @@ PyMappingMethods Tree_as_mapping = {
 
 PyMethodDef Tree_methods[] = {
     {
-     "diff", (PyCFunction)Tree_diff_tree, METH_VARARGS,
+     "diff", (PyCFunction)Tree_diff_tree, METH_VARARGS | METH_KEYWORDS,
      "Get changes between current tree instance with another tree, an "
      "index or the working dir.\n\n"
      "@param obj : if not given compare diff against working dir. "
